@@ -1,15 +1,21 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from './App'
+import { AppProviders } from './app/providers'
 
 describe('App', () => {
-  it('renderiza o marco da etapa 1', () => {
-    render(<App />)
+  beforeEach(() => sessionStorage.clear())
+
+  it('renderiza o login enquanto nao existe sessao', () => {
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>,
+    )
 
     expect(
-      screen.getByRole('heading', { name: 'Estrutura React pronta' }),
+      screen.getByRole('heading', { name: 'Bem-vindo(a)' }),
     ).toBeInTheDocument()
-    expect(screen.getByText('Etapa 1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Entrar' })).toBeInTheDocument()
   })
 })
-

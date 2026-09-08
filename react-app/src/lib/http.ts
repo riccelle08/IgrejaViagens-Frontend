@@ -67,7 +67,7 @@ export async function httpRequest<T>(
         typeof payload === 'string'
           ? payload
           : ((payload as ApiErrorPayload | null)?.message ??
-            'Nao foi possivel concluir a requisicao.')
+            'Não foi possível concluir a requisição.')
 
       throw new ApiError(
         message,
