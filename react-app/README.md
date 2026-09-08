@@ -8,16 +8,33 @@ permanecem como baseline e não devem ser modificados sem aprovação explícita
 
 ## Escopo atual
 
-A Etapa 2 implementa o login em React, incluindo validação e máscara de CPF,
-estado de carregamento, tratamento de erro, sessão temporária sem senha e o
-fluxo de primeiro acesso. Os únicos endpoints consumidos nesta etapa são:
+As Etapas 1 a 3 estão implementadas. Além do login, a aplicação possui React
+Router, layout compartilhado, sidebar responsiva, topbar, rotas protegidas por
+sessão/papel, placeholders e seleção de viagem. Os endpoints consumidos são:
 
 - `POST /auth/login`
 - `PUT /users/{cpf}` (somente para concluir o primeiro acesso)
+- `GET /trips` (seleção e contexto de viagem)
 
-Rotas, sidebar e dashboards continuam fora deste escopo. Até a modernização de
-segurança prevista para a Etapa 10, esta sessão representa apenas o estado do
-cliente; ela não substitui autenticação/autorização no backend.
+Os dashboards e demais módulos ainda são placeholders. A proteção por papel é
+somente visual; os limites estão documentados em
+[`docs/stage-3-routing-security.md`](docs/stage-3-routing-security.md).
+
+## Rotas
+
+| Rota | Papel | Estado |
+| --- | --- | --- |
+| `/` | Público | Login migrado |
+| `/admin` | Admin | Placeholder do dashboard |
+| `/admin/viajantes` | Admin | Placeholder |
+| `/admin/pagamentos` | Admin | Placeholder |
+| `/admin/transporte` | Admin | Placeholder |
+| `/admin/hotel` | Admin | Placeholder |
+| `/admin/cadastros` | Admin | Placeholder global |
+| `/admin/configuracoes` | Admin | Placeholder global |
+| `/viajante` | Viajante | Placeholder do dashboard |
+| `/viajante/pagamento` | Viajante | Placeholder |
+| `*` | Público | Página 404 |
 
 ## Requisitos
 

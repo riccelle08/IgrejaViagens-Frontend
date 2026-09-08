@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { MemoryRouter } from 'react-router'
 import { App } from './App'
 import { AppProviders } from './app/providers'
 
@@ -8,9 +9,11 @@ describe('App', () => {
 
   it('renderiza o login enquanto nao existe sessao', () => {
     render(
-      <AppProviders>
-        <App />
-      </AppProviders>,
+      <MemoryRouter initialEntries={['/']}>
+        <AppProviders>
+          <App />
+        </AppProviders>
+      </MemoryRouter>,
     )
 
     expect(
