@@ -1,4 +1,6 @@
 import { Route, Routes } from 'react-router'
+import { AdminDashboardPage } from '../../features/admin/dashboard/pages/AdminDashboardPage'
+import { TripSettingsPage } from '../../features/admin/settings/pages/TripSettingsPage'
 import { navigationByRole } from '../../features/navigation/config/navigation'
 import { NotFoundPage } from '../../pages/NotFoundPage'
 import { PlaceholderPage } from '../../pages/PlaceholderPage'
@@ -29,7 +31,7 @@ export function AppRouter() {
 
       <Route element={<RequireRole role="admin" />}>
         <Route element={<ProtectedRoleLayout role="admin" />}>
-          <Route path="/admin" element={placeholderFor('/admin', 'admin')} />
+          <Route path="/admin" element={<AdminDashboardPage />} />
           <Route
             path="/admin/viajantes"
             element={placeholderFor('/admin/viajantes', 'admin')}
@@ -52,7 +54,7 @@ export function AppRouter() {
           />
           <Route
             path="/admin/configuracoes"
-            element={placeholderFor('/admin/configuracoes', 'admin')}
+            element={<TripSettingsPage />}
           />
         </Route>
       </Route>

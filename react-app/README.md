@@ -8,30 +8,38 @@ permanecem como baseline e não devem ser modificados sem aprovação explícita
 
 ## Escopo atual
 
-As Etapas 1 a 3 estão implementadas. Além do login, a aplicação possui React
+As Etapas 1 a 4 estão implementadas. Além do login, a aplicação possui React
 Router, layout compartilhado, sidebar responsiva, topbar, rotas protegidas por
-sessão/papel, placeholders e seleção de viagem. Os endpoints consumidos são:
+sessão/papel, seleção e gestão de viagens, Dashboard Admin e Configurações. Os
+endpoints consumidos são:
 
 - `POST /auth/login`
 - `PUT /users/{cpf}` (somente para concluir o primeiro acesso)
-- `GET /trips` (seleção e contexto de viagem)
+- `GET /trips`
+- `GET /users`, `GET /payments` e `GET /seats` (Dashboard Admin)
+- `GET /rooms` (compatibilidade ao excluir viagem)
+- `PUT /trips/bulk`
+- `PUT /payments/bulk`, `PUT /seats/bulk` e `PUT /rooms/bulk` (compatibilidade
+  ao excluir viagem)
 
-Os dashboards e demais módulos ainda são placeholders. A proteção por papel é
-somente visual; os limites estão documentados em
-[`docs/stage-3-routing-security.md`](docs/stage-3-routing-security.md).
+O Dashboard Viajante e os módulos de Viajantes, Pagamentos, Hotel e Transporte
+ainda são placeholders. A proteção por papel é somente visual; os limites estão
+documentados em [`docs/stage-3-routing-security.md`](docs/stage-3-routing-security.md)
+e as pendências da API bulk em
+[`docs/stage-4-backend-pending.md`](docs/stage-4-backend-pending.md).
 
 ## Rotas
 
 | Rota | Papel | Estado |
 | --- | --- | --- |
 | `/` | Público | Login migrado |
-| `/admin` | Admin | Placeholder do dashboard |
+| `/admin` | Admin | Dashboard migrado |
 | `/admin/viajantes` | Admin | Placeholder |
 | `/admin/pagamentos` | Admin | Placeholder |
 | `/admin/transporte` | Admin | Placeholder |
 | `/admin/hotel` | Admin | Placeholder |
 | `/admin/cadastros` | Admin | Placeholder global |
-| `/admin/configuracoes` | Admin | Placeholder global |
+| `/admin/configuracoes` | Admin | Configurações da viagem migradas |
 | `/viajante` | Viajante | Placeholder do dashboard |
 | `/viajante/pagamento` | Viajante | Placeholder |
 | `*` | Público | Página 404 |

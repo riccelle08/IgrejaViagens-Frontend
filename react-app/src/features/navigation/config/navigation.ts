@@ -25,7 +25,7 @@ export const navigationByRole: Record<UserRole, NavigationSection[]> = {
           path: '/admin',
           icon: 'dashboard',
           pageTitle: 'Dashboard administrativo',
-          description: 'O conteúdo do dashboard será migrado na Etapa 4.',
+          description: 'Indicadores e acompanhamento da viagem ativa.',
           requiresTrip: true,
         },
         {
@@ -83,7 +83,7 @@ export const navigationByRole: Record<UserRole, NavigationSection[]> = {
           path: '/admin/configuracoes',
           icon: 'settings',
           pageTitle: 'Configurações',
-          description: 'As configurações serão migradas em uma etapa futura.',
+          description: 'Dados gerais e meta da viagem ativa.',
           requiresTrip: true,
         },
       ],

@@ -6,8 +6,9 @@ import {
   type PropsWithChildren,
 } from 'react'
 import { useAuth } from '../../auth/hooks/useAuth'
-import { listTrips } from '../api/tripApi'
-import type { TripSummary } from '../model/tripTypes'
+import { deleteTripWithCompatibility } from '../api/tripCompatibilityApi'
+import { listTrips, replaceTrips } from '../api/tripApi'
+import type { Trip, TripMutation } from '../model/tripTypes'
 import {
   clearActiveTripId,
   readActiveTripId,
@@ -23,7 +24,7 @@ function getLoadError(error: unknown) {
 
 export function TripProvider({ children }: PropsWithChildren) {
   const { user } = useAuth()
-  const [trips, setTrips] = useState<TripSummary[]>([])
+  const [trips, setTrips] = useState<Trip[]>([])
   const [activeTripId, setActiveTripId] = useState<string | null>(
     readActiveTripId,
   )
@@ -93,6 +94,71 @@ export function TripProvider({ children }: PropsWithChildren) {
     setActiveTripId(null)
   }, [])
 
+  const createTrip = useCallback(
+    async (mutation: TripMutation) => {
+      const id = `trip_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      const createdTrip: Trip = {
+        id,
+        ...mutation,
+        hotelsJson: '[]',
+        travelersJson: '[]',
+        travelerCpfs: [],
+      }
+      const persistedTrips = await replaceTrips([...trips, createdTrip])
+      const persistedTrip =
+        persistedTrips.find((trip) => trip.id === id) ?? createdTrip
+
+      setTrips(persistedTrips)
+      writeActiveTripId(persistedTrip.id)
+      setActiveTripId(persistedTrip.id)
+      setIsSelectorOpen(false)
+      return persistedTrip
+    },
+    [trips],
+  )
+
+  const updateTrip = useCallback(
+    async (tripId: string, mutation: TripMutation) => {
+      const currentTrip = trips.find((trip) => trip.id === tripId)
+      if (!currentTrip) throw new Error('Viagem não encontrada.')
+
+      const updatedTrip: Trip = {
+        ...currentTrip,
+        ...mutation,
+        // Estes contratos não pertencem ao formulário e nunca são reconstruídos.
+        hotelsJson: currentTrip.hotelsJson,
+        travelersJson: currentTrip.travelersJson,
+        travelerCpfs: currentTrip.travelerCpfs,
+      }
+      const persistedTrips = await replaceTrips(
+        trips.map((trip) => (trip.id === tripId ? updatedTrip : trip)),
+      )
+      const persistedTrip =
+        persistedTrips.find((trip) => trip.id === tripId) ?? updatedTrip
+
+      setTrips(persistedTrips)
+      return persistedTrip
+    },
+    [trips],
+  )
+
+  const deleteTrip = useCallback(
+    async (tripId: string) => {
+      if (!trips.some((trip) => trip.id === tripId)) {
+        throw new Error('Viagem não encontrada.')
+      }
+
+      const persistedTrips = await deleteTripWithCompatibility(trips, tripId)
+      setTrips(persistedTrips)
+
+      if (activeTripId === tripId) {
+        clearActiveTripId()
+        setActiveTripId(null)
+      }
+    },
+    [activeTripId, trips],
+  )
+
   const contextValue = useMemo(
     () => ({
       activeTrip,
@@ -103,20 +169,26 @@ export function TripProvider({ children }: PropsWithChildren) {
       isSelectorOpen,
       clearActiveTrip,
       closeSelector: () => setIsSelectorOpen(false),
+      createTrip,
+      deleteTrip,
       openSelector: () => setIsSelectorOpen(true),
       reloadTrips,
       selectTrip,
+      updateTrip,
     }),
     [
       activeTrip,
       activeTripId,
       availableTrips,
       clearActiveTrip,
+      createTrip,
+      deleteTrip,
       errorMessage,
       isLoading,
       isSelectorOpen,
       reloadTrips,
       selectTrip,
+      updateTrip,
     ],
   )
 

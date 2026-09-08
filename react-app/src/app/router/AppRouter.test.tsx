@@ -73,7 +73,7 @@ describe('rotas e layout protegido', () => {
   beforeEach(() => {
     sessionStorage.clear()
     fetchMock.mockReset()
-    fetchMock.mockResolvedValue(jsonResponse([]))
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse([])))
     vi.stubGlobal('fetch', fetchMock)
   })
 
@@ -163,7 +163,9 @@ describe('rotas e layout protegido', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
-    expect(screen.getByText(/Contexto ativo:/)).toHaveTextContent(trip.name)
+    expect(
+      await screen.findByRole('heading', { name: trip.name }),
+    ).toBeInTheDocument()
     expect(readActiveTripId()).toBe(trip.id)
   })
 
@@ -172,10 +174,6 @@ describe('rotas e layout protegido', () => {
     renderRoute('/admin/configuracoes', admin)
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
-    expect(
-      screen.getByText('As configurações serão migradas em uma etapa futura.'),
-    ).toBeInTheDocument()
-
     await userEvent.click(
       screen.getByRole('button', { name: `Selecionar viagem ${trip.name}` }),
     )
@@ -184,9 +182,11 @@ describe('rotas e layout protegido', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
     expect(
-      screen.getByText('As configurações serão migradas em uma etapa futura.'),
+      screen.getByRole('button', { name: 'Salvar configurações' }),
     ).toBeInTheDocument()
-    expect(screen.getByText(/Contexto ativo:/)).toHaveTextContent(trip.name)
+    expect(
+      screen.getByRole('heading', { name: trip.name }),
+    ).toBeInTheDocument()
     expect(readActiveTripId()).toBe(trip.id)
   })
 
@@ -195,9 +195,9 @@ describe('rotas e layout protegido', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse([trip]))
     renderRoute('/admin', admin)
 
-    expect(await screen.findByText(/Contexto ativo:/)).toHaveTextContent(
-      trip.name,
-    )
+    expect(
+      await screen.findByRole('heading', { name: trip.name }),
+    ).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 

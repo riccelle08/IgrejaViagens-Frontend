@@ -1,8 +1,12 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
+import { AppIcon } from '../../../shared/components/AppIcon'
 import { useLogout } from '../../auth/hooks/useLogout'
 import type { UserRole } from '../../auth/model/authTypes'
-import { AppIcon } from '../../../shared/components/AppIcon'
 import { useTrip } from '../hooks/useTrip'
+import type { Trip } from '../model/tripTypes'
+import { DeleteTripConfirmModal } from './DeleteTripConfirmModal'
+import { TripFormModal } from './TripFormModal'
 
 interface TripSelectorModalProps {
   isOpen: boolean
@@ -19,6 +23,9 @@ function formatDate(value: string) {
 }
 
 export function TripSelectorModal({ isOpen, role }: TripSelectorModalProps) {
+  const [tripBeingEdited, setTripBeingEdited] = useState<Trip | null>(null)
+  const [tripBeingDeleted, setTripBeingDeleted] = useState<Trip | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
   const {
     activeTrip,
     availableTrips,
@@ -31,6 +38,27 @@ export function TripSelectorModal({ isOpen, role }: TripSelectorModalProps) {
   const logout = useLogout()
 
   if (!isOpen) return null
+
+  if (isCreating || tripBeingEdited) {
+    return (
+      <TripFormModal
+        onClose={() => {
+          setIsCreating(false)
+          setTripBeingEdited(null)
+        }}
+        trip={tripBeingEdited ?? undefined}
+      />
+    )
+  }
+
+  if (tripBeingDeleted) {
+    return (
+      <DeleteTripConfirmModal
+        onClose={() => setTripBeingDeleted(null)}
+        trip={tripBeingDeleted}
+      />
+    )
+  }
 
   const canClose = activeTrip !== null
   const isAdmin = role === 'admin'
@@ -55,16 +83,27 @@ export function TripSelectorModal({ isOpen, role }: TripSelectorModalProps) {
                 : 'Escolha qual viagem deseja acessar'}
             </p>
           </div>
-          {canClose ? (
-            <button
-              aria-label="Fechar seletor de viagem"
-              className="trip-selector__close"
-              onClick={closeSelector}
-              type="button"
-            >
-              <AppIcon name="x" />
-            </button>
-          ) : null}
+          <div className="trip-selector__header-actions">
+            {isAdmin ? (
+              <button
+                className="trip-selector__new"
+                onClick={() => setIsCreating(true)}
+                type="button"
+              >
+                Nova viagem
+              </button>
+            ) : null}
+            {canClose ? (
+              <button
+                aria-label="Fechar seletor de viagem"
+                className="trip-selector__close"
+                onClick={closeSelector}
+                type="button"
+              >
+                <AppIcon name="x" />
+              </button>
+            ) : null}
+          </div>
         </header>
 
         <div className="trip-selector__body">
@@ -98,34 +137,56 @@ export function TripSelectorModal({ isOpen, role }: TripSelectorModalProps) {
 
           {!isLoading && !errorMessage
             ? availableTrips.map((trip) => (
-                <button
-                  aria-label={`Selecionar viagem ${trip.name}`}
+                <div
                   className={`trip-option ${
                     activeTrip?.id === trip.id ? 'is-active' : ''
                   }`}
                   key={trip.id}
-                  onClick={() => selectTrip(trip.id)}
-                  type="button"
                 >
-                  <span className="trip-option__icon">
-                    <AppIcon name="plane" />
-                  </span>
-                  <span className="trip-option__content">
-                    <strong>{trip.name}</strong>
-                    <span>
-                      {trip.destination || 'Destino não informado'} ·{' '}
-                      {formatDate(trip.date)}
-                      {isAdmin
-                        ? ` · ${trip.travelerCpfs.length} viajante(s)`
-                        : ''}
+                  <button
+                    aria-label={`Selecionar viagem ${trip.name}`}
+                    className="trip-option__select"
+                    onClick={() => selectTrip(trip.id)}
+                    type="button"
+                  >
+                    <span className="trip-option__icon">
+                      <AppIcon name="plane" />
                     </span>
-                  </span>
-                  {activeTrip?.id === trip.id ? (
-                    <AppIcon name="check" />
-                  ) : (
-                    <AppIcon name="chevronRight" />
-                  )}
-                </button>
+                    <span className="trip-option__content">
+                      <strong>{trip.name}</strong>
+                      <span>
+                        {trip.destination || 'Destino não informado'} ·{' '}
+                        {formatDate(trip.date)}
+                        {isAdmin
+                          ? ` · ${trip.travelerCpfs.length} viajante(s)`
+                          : ''}
+                      </span>
+                    </span>
+                    {activeTrip?.id === trip.id ? (
+                      <AppIcon name="check" />
+                    ) : (
+                      <AppIcon name="chevronRight" />
+                    )}
+                  </button>
+                  {isAdmin ? (
+                    <div className="trip-option__actions">
+                      <button
+                        aria-label={`Editar viagem ${trip.name}`}
+                        onClick={() => setTripBeingEdited(trip)}
+                        type="button"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        aria-label={`Excluir viagem ${trip.name}`}
+                        onClick={() => setTripBeingDeleted(trip)}
+                        type="button"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               ))
             : null}
         </div>
