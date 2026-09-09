@@ -97,7 +97,7 @@ describe('rotas e layout protegido', () => {
     renderRoute('/admin/viajantes', admin)
 
     expect(
-      await screen.findByText('A gestão de viajantes será migrada na Etapa 6.'),
+      await screen.findByRole('heading', { name: 'Viajantes de Retiro 2027' }),
     ).toBeInTheDocument()
   })
 

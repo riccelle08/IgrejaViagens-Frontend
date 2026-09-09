@@ -33,7 +33,7 @@ export const navigationByRole: Record<UserRole, NavigationSection[]> = {
           path: '/admin/viajantes',
           icon: 'users',
           pageTitle: 'Viajantes',
-          description: 'A gestão de viajantes será migrada na Etapa 6.',
+          description: 'Pessoas e dados operacionais da viagem ativa.',
           requiresTrip: true,
         },
       ],
@@ -75,7 +75,7 @@ export const navigationByRole: Record<UserRole, NavigationSection[]> = {
           path: '/admin/cadastros',
           icon: 'folder',
           pageTitle: 'Cadastro global',
-          description: 'O cadastro global será migrado em uma etapa futura.',
+          description: 'Usuários do sistema e suas viagens associadas.',
           requiresTrip: false,
         },
         {
