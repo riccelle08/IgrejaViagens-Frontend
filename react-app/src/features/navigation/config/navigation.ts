@@ -98,7 +98,7 @@ export const navigationByRole: Record<UserRole, NavigationSection[]> = {
           path: '/viajante',
           icon: 'home',
           pageTitle: 'Área do viajante',
-          description: 'O dashboard do viajante será migrado na Etapa 5.',
+          description: 'Passagem digital e informações da viagem ativa.',
           requiresTrip: true,
         },
         {

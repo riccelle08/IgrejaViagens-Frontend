@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router'
 import { AdminDashboardPage } from '../../features/admin/dashboard/pages/AdminDashboardPage'
 import { TripSettingsPage } from '../../features/admin/settings/pages/TripSettingsPage'
+import { TravelerDashboardPage } from '../../features/traveler/dashboard/pages/TravelerDashboardPage'
 import { navigationByRole } from '../../features/navigation/config/navigation'
 import { NotFoundPage } from '../../pages/NotFoundPage'
 import { PlaceholderPage } from '../../pages/PlaceholderPage'
@@ -63,7 +64,7 @@ export function AppRouter() {
         <Route element={<ProtectedRoleLayout role="traveler" />}>
           <Route
             path="/viajante"
-            element={placeholderFor('/viajante', 'traveler')}
+            element={<TravelerDashboardPage />}
           />
           <Route
             path="/viajante/pagamento"

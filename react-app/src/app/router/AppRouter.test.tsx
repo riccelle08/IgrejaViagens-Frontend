@@ -107,10 +107,10 @@ describe('rotas e layout protegido', () => {
     renderRoute('/admin', traveler)
 
     expect(
-      await screen.findByText('O dashboard do viajante será migrado na Etapa 5.'),
+      await screen.findByRole('heading', { name: 'Olá, Tiago' }),
     ).toBeInTheDocument()
     expect(
-      screen.queryByText('O conteúdo do dashboard será migrado na Etapa 4.'),
+      screen.queryByText('Total de viajantes'),
     ).not.toBeInTheDocument()
   })
 
