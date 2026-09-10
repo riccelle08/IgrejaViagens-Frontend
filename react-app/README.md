@@ -8,10 +8,10 @@ permanecem como baseline e não devem ser modificados sem aprovação explícita
 
 ## Escopo atual
 
-As Etapas 1 a 7 estão implementadas. Além do login, a aplicação possui React
+As Etapas 1 a 8 estão implementadas. Além do login, a aplicação possui React
 Router, layout compartilhado, sidebar responsiva, topbar, rotas protegidas por
 sessão/papel, seleção e gestão de viagens, dashboards, Configurações, Viajantes,
-Cadastro Global e Pagamentos. Os endpoints consumidos são:
+Cadastro Global, Pagamentos, Hotel e Transporte. Os endpoints consumidos são:
 
 - `POST /auth/login`
 - `PUT /users/{cpf}` (somente para concluir o primeiro acesso)
@@ -21,13 +21,12 @@ Cadastro Global e Pagamentos. Os endpoints consumidos são:
 - `POST /users`, `PUT /users/{cpf}` e `DELETE /users/{cpf}` (Cadastro Global)
 - `GET /users`, `GET /payments`, `GET /seats` e `GET /rooms` (Viajantes)
 - `GET /payments` e `GET /users` (Pagamentos)
-- `GET /rooms` (compatibilidade ao excluir viagem)
-- `PUT /trips/bulk`
-- `PUT /payments/bulk`, `PUT /seats/bulk` e `PUT /rooms/bulk` (compatibilidade
-  ao excluir viagem)
+- `GET /rooms`, `GET /seats` e `GET /users` (Hotel e Transporte)
+- `PUT /trips/bulk` (viagens, hotéis e ônibus)
+- `PUT /payments/bulk`, `PUT /seats/bulk` e `PUT /rooms/bulk` (operações de
+  compatibilidade enquanto não existem contratos granulares suficientes)
 
-Os módulos de Hotel e Transporte ainda são placeholders. A proteção por papel
-é somente visual; os limites estão
+A proteção por papel é somente visual; os limites estão
 documentados em [`docs/stage-3-routing-security.md`](docs/stage-3-routing-security.md)
 e as pendências da API bulk em
 [`docs/stage-4-backend-pending.md`](docs/stage-4-backend-pending.md). Os limites
@@ -37,6 +36,8 @@ As operações de usuários e os bulk temporários da Etapa 6 estão descritos e
 [`docs/stage-6-users-compatibility.md`](docs/stage-6-users-compatibility.md).
 Os cálculos e limites dos pagamentos estão em
 [`docs/stage-7-payments-compatibility.md`](docs/stage-7-payments-compatibility.md).
+Os contratos duplicados de hotel/transporte e seus riscos estão em
+[`docs/stage-8-operations-compatibility.md`](docs/stage-8-operations-compatibility.md).
 
 ## Rotas
 
@@ -46,8 +47,8 @@ Os cálculos e limites dos pagamentos estão em
 | `/admin` | Admin | Dashboard migrado |
 | `/admin/viajantes` | Admin | Viajantes da viagem migrados |
 | `/admin/pagamentos` | Admin | Gestão financeira migrada |
-| `/admin/transporte` | Admin | Placeholder |
-| `/admin/hotel` | Admin | Placeholder |
+| `/admin/transporte` | Admin | Ônibus e assentos migrados |
+| `/admin/hotel` | Admin | Hotéis e quartos migrados |
 | `/admin/cadastros` | Admin | Cadastro Global migrado |
 | `/admin/configuracoes` | Admin | Configurações da viagem migradas |
 | `/viajante` | Viajante | Dashboard e passagem digital migrados |

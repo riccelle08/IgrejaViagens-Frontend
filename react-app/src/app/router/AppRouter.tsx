@@ -2,32 +2,16 @@ import { Route, Routes } from 'react-router'
 import { AdminDashboardPage } from '../../features/admin/dashboard/pages/AdminDashboardPage'
 import { TripSettingsPage } from '../../features/admin/settings/pages/TripSettingsPage'
 import { TravelerDashboardPage } from '../../features/traveler/dashboard/pages/TravelerDashboardPage'
-import { navigationByRole } from '../../features/navigation/config/navigation'
+import { BusManagementPage } from '../../features/operations/pages/BusManagementPage'
+import { HotelManagementPage } from '../../features/operations/pages/HotelManagementPage'
 import { AdminPaymentsPage } from '../../features/payments/pages/AdminPaymentsPage'
 import { TravelerPaymentPage } from '../../features/payments/pages/TravelerPaymentPage'
 import { GlobalUsersPage } from '../../features/users/pages/GlobalUsersPage'
 import { TripTravelersPage } from '../../features/users/pages/TripTravelersPage'
 import { NotFoundPage } from '../../pages/NotFoundPage'
-import { PlaceholderPage } from '../../pages/PlaceholderPage'
 import { LoginRoute } from './LoginRoute'
 import { ProtectedRoleLayout } from './ProtectedRoleLayout'
 import { RequireRole } from './guards/RequireRole'
-
-function placeholderFor(path: string, role: 'admin' | 'traveler') {
-  const item = navigationByRole[role]
-    .flatMap((section) => section.items)
-    .find((navigationItem) => navigationItem.path === path)
-
-  if (!item) throw new Error(`Rota sem metadados: ${path}`)
-
-  return (
-    <PlaceholderPage
-      description={item.description}
-      icon={item.icon}
-      title={item.pageTitle}
-    />
-  )
-}
 
 export function AppRouter() {
   return (
@@ -47,11 +31,11 @@ export function AppRouter() {
           />
           <Route
             path="/admin/transporte"
-            element={placeholderFor('/admin/transporte', 'admin')}
+            element={<BusManagementPage />}
           />
           <Route
             path="/admin/hotel"
-            element={placeholderFor('/admin/hotel', 'admin')}
+            element={<HotelManagementPage />}
           />
           <Route
             path="/admin/cadastros"

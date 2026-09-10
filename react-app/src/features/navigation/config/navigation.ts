@@ -54,7 +54,7 @@ export const navigationByRole: Record<UserRole, NavigationSection[]> = {
           path: '/admin/transporte',
           icon: 'bus',
           pageTitle: 'Transporte',
-          description: 'A gestão de transporte será migrada na Etapa 8.',
+          description: 'Ônibus, pisos e distribuição de assentos da viagem ativa.',
           requiresTrip: true,
         },
         {
@@ -62,7 +62,7 @@ export const navigationByRole: Record<UserRole, NavigationSection[]> = {
           path: '/admin/hotel',
           icon: 'building',
           pageTitle: 'Hotel',
-          description: 'A gestão de hotel será migrada na Etapa 8.',
+          description: 'Hotéis, quartos e ocupantes da viagem ativa.',
           requiresTrip: true,
         },
       ],
