@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../../../App'
 import { AppProviders } from '../../../app/providers'
 import type { AuthUser } from '../../auth/model/authTypes'
-import { writeAuthSession } from '../../auth/storage/authSession'
 import {
   readActiveTripId,
   writeActiveTripId,
@@ -73,7 +72,6 @@ function parseRequestBody(init?: RequestInit) {
 }
 
 function renderRoute(path: string) {
-  writeAuthSession(admin)
   return render(
     <MemoryRouter initialEntries={[path]}>
       <AppProviders>
@@ -85,10 +83,21 @@ function renderRoute(path: string) {
 
 describe('gestão de viagens e configurações', () => {
   const fetchMock = vi.fn<typeof fetch>()
+  let resourceHandler: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Promise<Response>
 
   beforeEach(() => {
     sessionStorage.clear()
     fetchMock.mockReset()
+    resourceHandler = () => Promise.resolve(jsonResponse([]))
+    fetchMock.mockImplementation((input, init) => {
+      if (requestPath(input) === '/auth/me') {
+        return Promise.resolve(jsonResponse(admin))
+      }
+      return resourceHandler(input, init)
+    })
     vi.stubGlobal('fetch', fetchMock)
   })
 
@@ -99,7 +108,7 @@ describe('gestão de viagens e configurações', () => {
 
   it('cria uma viagem, persiste a meta e a torna ativa', async () => {
     const savedTripBodies: Array<Record<string, unknown>[]> = []
-    fetchMock.mockImplementation((input, init) => {
+    resourceHandler = (input, init) => {
       const path = requestPath(input)
       if (path === '/trips' && !init?.method) return Promise.resolve(jsonResponse([]))
       if (path === '/trips/bulk' && init?.method === 'PUT') {
@@ -108,7 +117,7 @@ describe('gestão de viagens e configurações', () => {
         return Promise.resolve(jsonResponse(body))
       }
       return Promise.resolve(jsonResponse([]))
-    })
+    }
 
     renderRoute('/admin/cadastros')
     await userEvent.click(
@@ -142,7 +151,7 @@ describe('gestão de viagens e configurações', () => {
   it('edita viagem, configura ônibus e preserva hotéis, viajantes e IDs', async () => {
     let persistedBody: Array<Record<string, unknown>> | null = null
     writeActiveTripId(rawTrip.id)
-    fetchMock.mockImplementation((input, init) => {
+    resourceHandler = (input, init) => {
       const path = requestPath(input)
       if (path === '/trips' && !init?.method) {
         return Promise.resolve(jsonResponse([rawTrip]))
@@ -152,7 +161,7 @@ describe('gestão de viagens e configurações', () => {
         return Promise.resolve(jsonResponse(persistedBody))
       }
       return Promise.resolve(jsonResponse([]))
-    })
+    }
 
     renderRoute('/admin/cadastros')
     await userEvent.click(
@@ -210,7 +219,7 @@ describe('gestão de viagens e configurações', () => {
   it('só exclui após confirmação e limpa coleções vinculadas', async () => {
     const putBodies = new Map<string, unknown>()
     writeActiveTripId(rawTrip.id)
-    fetchMock.mockImplementation((input, init) => {
+    resourceHandler = (input, init) => {
       const path = requestPath(input)
       if (path === '/trips' && !init?.method) {
         return Promise.resolve(jsonResponse([rawTrip]))
@@ -235,7 +244,7 @@ describe('gestão de viagens e configurações', () => {
         return Promise.resolve(jsonResponse(body))
       }
       return Promise.resolve(jsonResponse([]))
-    })
+    }
 
     renderRoute('/admin/cadastros')
     await userEvent.click(
@@ -263,7 +272,7 @@ describe('gestão de viagens e configurações', () => {
 
   it('não anuncia sucesso quando a persistência das Configurações falha', async () => {
     writeActiveTripId(rawTrip.id)
-    fetchMock.mockImplementation((input, init) => {
+    resourceHandler = (input, init) => {
       const path = requestPath(input)
       if (path === '/trips' && !init?.method) {
         return Promise.resolve(jsonResponse([rawTrip]))
@@ -274,7 +283,7 @@ describe('gestão de viagens e configurações', () => {
         )
       }
       return Promise.resolve(jsonResponse([]))
-    })
+    }
 
     renderRoute('/admin/configuracoes')
     await userEvent.click(
@@ -291,7 +300,7 @@ describe('gestão de viagens e configurações', () => {
   it('atualiza Configurações e mantém a mesma viagem ativa', async () => {
     let persistedBody: Array<Record<string, unknown>> | null = null
     writeActiveTripId(rawTrip.id)
-    fetchMock.mockImplementation((input, init) => {
+    resourceHandler = (input, init) => {
       const path = requestPath(input)
       if (path === '/trips' && !init?.method) {
         return Promise.resolve(jsonResponse([rawTrip]))
@@ -301,7 +310,7 @@ describe('gestão de viagens e configurações', () => {
         return Promise.resolve(jsonResponse(persistedBody))
       }
       return Promise.resolve(jsonResponse([]))
-    })
+    }
 
     renderRoute('/admin/configuracoes')
     const name = await screen.findByLabelText('Nome da viagem')

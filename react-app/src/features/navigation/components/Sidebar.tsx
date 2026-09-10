@@ -60,7 +60,13 @@ export function Sidebar({ isOpen, onNavigate, role, user }: SidebarProps) {
             <span>{role === 'admin' ? 'Administrador' : 'Viajante'}</span>
           </div>
         </div>
-        <button aria-label="Sair" onClick={logout} type="button">
+        <button
+          aria-label="Sair"
+          onClick={() => {
+            void logout()
+          }}
+          type="button"
+        >
           <AppIcon name="logout" />
         </button>
       </footer>

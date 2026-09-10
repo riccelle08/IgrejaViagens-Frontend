@@ -26,12 +26,16 @@ function readKids(value: unknown) {
     : []
 }
 
-function toAuthUser(payload: unknown, requestedCpf: string): AuthUser {
+function toAuthUser(payload: unknown): AuthUser {
   const user = asRecord(payload)
   const responseCpf = stripCpf(readString(user.cpf))
 
+  if (!responseCpf) {
+    throw new Error('Resposta de autenticação inválida.')
+  }
+
   return {
-    cpf: responseCpf || requestedCpf,
+    cpf: responseCpf,
     name: readString(user.name, 'Usuário'),
     role: readRole(user.role),
     birthdate: readString(user.birthdate),
@@ -43,16 +47,27 @@ function toAuthUser(payload: unknown, requestedCpf: string): AuthUser {
   }
 }
 
+export async function getCurrentUser() {
+  const response = await httpRequest<unknown>('/auth/me')
+  return toAuthUser(response)
+}
+
 export async function login(credentials: LoginCredentials) {
   const cpf = stripCpf(credentials.cpf)
-  const response = await httpRequest<unknown>('/auth/login', {
+
+  await httpRequest<unknown>('/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ cpf, password: credentials.password }),
+    // Um 401 aqui significa credenciais inválidas, não expiração de sessão.
+    skipUnauthorizedNotification: true,
   })
 
-  // O backend legado devolve a senha. A lista permitida acima a descarta.
-  return toAuthUser(response, cpf)
+  return getCurrentUser()
+}
+
+export async function logout() {
+  await httpRequest<null>('/auth/logout', { method: 'POST' })
 }
 
 export async function completeFirstAccess(
@@ -78,5 +93,5 @@ export async function completeFirstAccess(
     }),
   })
 
-  return { ...user, cpf, firstLogin: false }
+  return getCurrentUser()
 }

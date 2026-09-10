@@ -24,6 +24,22 @@ export class ApiError extends Error {
 
 interface RequestOptions extends RequestInit {
   timeoutMs?: number
+  skipUnauthorizedNotification?: boolean
+}
+
+type UnauthorizedListener = () => void
+
+const unauthorizedListeners = new Set<UnauthorizedListener>()
+
+export function subscribeToUnauthorized(listener: UnauthorizedListener) {
+  unauthorizedListeners.add(listener)
+  return () => {
+    unauthorizedListeners.delete(listener)
+  }
+}
+
+function notifyUnauthorized() {
+  unauthorizedListeners.forEach((listener) => listener())
 }
 
 function resolveUrl(path: string) {
@@ -47,13 +63,19 @@ export async function httpRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { timeoutMs = 10_000, headers, ...requestOptions } = options
+  const {
+    timeoutMs = 10_000,
+    headers,
+    skipUnauthorizedNotification = false,
+    ...requestOptions
+  } = options
   const abortController = new AbortController()
   const timeout = window.setTimeout(() => abortController.abort(), timeoutMs)
 
   try {
     const response = await fetch(resolveUrl(path), {
       ...requestOptions,
+      credentials: 'include',
       headers: {
         Accept: 'application/json',
         ...headers,
@@ -63,6 +85,10 @@ export async function httpRequest<T>(
     const payload = await parseResponse(response)
 
     if (!response.ok) {
+      if (response.status === 401 && !skipUnauthorizedNotification) {
+        notifyUnauthorized()
+      }
+
       const message =
         typeof payload === 'string'
           ? payload

@@ -8,9 +8,15 @@ export function useLogout() {
   const { clearActiveTrip } = useTrip()
   const navigate = useNavigate()
 
-  return useCallback(() => {
-    clearActiveTrip()
-    signOut()
-    void navigate('/', { replace: true })
+  return useCallback(async () => {
+    try {
+      await signOut()
+    } catch {
+      // O estado local ainda é encerrado no AuthProvider. O cookie HttpOnly
+      // só pode ser invalidado pelo backend quando a conexão está disponível.
+    } finally {
+      clearActiveTrip()
+      void navigate('/', { replace: true })
+    }
   }, [clearActiveTrip, navigate, signOut])
 }

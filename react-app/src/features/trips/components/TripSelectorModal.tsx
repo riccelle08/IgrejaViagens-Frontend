@@ -200,7 +200,12 @@ export function TripSelectorModal({ isOpen, role }: TripSelectorModalProps) {
           ) : (
             <span />
           )}
-          <button onClick={logout} type="button">
+          <button
+            onClick={() => {
+              void logout()
+            }}
+            type="button"
+          >
             <AppIcon name="logout" />
             Sair
           </button>

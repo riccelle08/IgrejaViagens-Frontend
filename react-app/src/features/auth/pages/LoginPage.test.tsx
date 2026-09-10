@@ -53,7 +53,9 @@ describe('LoginPage', () => {
   })
 
   it('autentica com CPF sem mascara e descarta a senha da resposta', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(apiUser))
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(apiUser))
+      .mockResolvedValueOnce(jsonResponse(apiUser))
     const onAuthenticated = vi.fn<(user: AuthUser) => void>()
     render(<LoginPage onAuthenticated={onAuthenticated} />)
 
@@ -72,6 +74,13 @@ describe('LoginPage', () => {
       cpf: '52998224725',
       password: 'senha-atual',
     })
+    expect(requestOptions).toEqual(
+      expect.objectContaining({ credentials: 'include' }),
+    )
+    expect(fetchMock.mock.calls[1][0]).toBe('/auth/me')
+    expect(fetchMock.mock.calls[1][1]).toEqual(
+      expect.objectContaining({ credentials: 'include' }),
+    )
 
     const authenticatedUser = onAuthenticated.mock.calls[0][0]
     expect(authenticatedUser).not.toHaveProperty('password')
@@ -100,9 +109,11 @@ describe('LoginPage', () => {
   it('conclui primeiro acesso com PUT individual e so entao cria a sessao', async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ ...apiUser, firstLogin: true }))
+      .mockResolvedValueOnce(jsonResponse({ ...apiUser, firstLogin: true }))
       .mockResolvedValueOnce(
         jsonResponse({ ...apiUser, password: 'nova-senha', firstLogin: false }),
       )
+      .mockResolvedValueOnce(jsonResponse({ ...apiUser, firstLogin: false }))
     const onAuthenticated = vi.fn<(user: AuthUser) => void>()
     render(<LoginPage onAuthenticated={onAuthenticated} />)
 
@@ -119,9 +130,9 @@ describe('LoginPage', () => {
     )
 
     await waitFor(() => expect(onAuthenticated).toHaveBeenCalledOnce())
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
 
-    const [requestUrl, requestOptions] = fetchMock.mock.calls[1]
+    const [requestUrl, requestOptions] = fetchMock.mock.calls[2]
     expect(requestUrl).toBe('/users/52998224725')
     expect(requestOptions).toEqual(expect.objectContaining({ method: 'PUT' }))
     expect(parseRequestBody(requestOptions)).toEqual({
@@ -137,6 +148,7 @@ describe('LoginPage', () => {
       kids: [],
     })
     expect(requestUrl).not.toContain('/bulk')
+    expect(fetchMock.mock.calls[3][0]).toBe('/auth/me')
 
     const authenticatedUser = onAuthenticated.mock.calls[0][0]
     expect(authenticatedUser).not.toHaveProperty('password')

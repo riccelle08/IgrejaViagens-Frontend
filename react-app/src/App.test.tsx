@@ -1,13 +1,23 @@
 import { render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router'
 import { App } from './App'
 import { AppProviders } from './app/providers'
 
 describe('App', () => {
-  beforeEach(() => sessionStorage.clear())
+  beforeEach(() => {
+    sessionStorage.clear()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(new Response(null, { status: 401 })),
+      ),
+    )
+  })
 
-  it('renderiza o login enquanto nao existe sessao', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('renderiza o login quando o backend não possui sessão', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <AppProviders>
@@ -16,8 +26,9 @@ describe('App', () => {
       </MemoryRouter>,
     )
 
+    expect(screen.getByRole('status')).toHaveTextContent('Verificando sessão')
     expect(
-      screen.getByRole('heading', { name: 'Bem-vindo(a)' }),
+      await screen.findByRole('heading', { name: 'Bem-vindo(a)' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Entrar' })).toBeInTheDocument()
   })

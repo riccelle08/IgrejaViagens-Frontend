@@ -13,10 +13,6 @@ import { App } from '../../App'
 import { AppProviders } from '../providers'
 import type { AuthUser } from '../../features/auth/model/authTypes'
 import {
-  readAuthSession,
-  writeAuthSession,
-} from '../../features/auth/storage/authSession'
-import {
   readActiveTripId,
   writeActiveTripId,
 } from '../../features/trips/storage/activeTripStorage'
@@ -55,8 +51,20 @@ function jsonResponse(body: unknown) {
   })
 }
 
+function requestPath(input: RequestInfo | URL) {
+  const url =
+    input instanceof Request
+      ? input.url
+      : input instanceof URL
+        ? input.href
+        : input
+  return new URL(url, 'http://localhost').pathname
+}
+
+let authenticatedSessionUser: AuthUser | null = null
+
 function renderRoute(path: string, authenticatedUser?: AuthUser) {
-  if (authenticatedUser) writeAuthSession(authenticatedUser)
+  authenticatedSessionUser = authenticatedUser ?? null
 
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -69,11 +77,31 @@ function renderRoute(path: string, authenticatedUser?: AuthUser) {
 
 describe('rotas e layout protegido', () => {
   const fetchMock = vi.fn<typeof fetch>()
+  let resourceHandler: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Promise<Response>
 
   beforeEach(() => {
     sessionStorage.clear()
+    authenticatedSessionUser = null
     fetchMock.mockReset()
-    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse([])))
+    resourceHandler = () => Promise.resolve(jsonResponse([]))
+    fetchMock.mockImplementation((input, init) => {
+      const path = requestPath(input)
+      if (path === '/auth/me') {
+        return Promise.resolve(
+          authenticatedSessionUser
+            ? jsonResponse(authenticatedSessionUser)
+            : new Response(null, { status: 401 }),
+        )
+      }
+      if (path === '/auth/logout') {
+        authenticatedSessionUser = null
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      return resourceHandler(input, init)
+    })
     vi.stubGlobal('fetch', fetchMock)
   })
 
@@ -88,12 +116,16 @@ describe('rotas e layout protegido', () => {
     expect(
       await screen.findByRole('heading', { name: 'Bem-vindo(a)' }),
     ).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0][0]).toBe('/auth/me')
   })
 
   it('permite que admin acesse rota administrativa', async () => {
     writeActiveTripId(trip.id)
-    fetchMock.mockResolvedValueOnce(jsonResponse([trip]))
+    resourceHandler = (input) =>
+      Promise.resolve(
+        requestPath(input) === '/trips' ? jsonResponse([trip]) : jsonResponse([]),
+      )
     renderRoute('/admin/viajantes', admin)
 
     expect(
@@ -103,7 +135,10 @@ describe('rotas e layout protegido', () => {
 
   it('impede viajante de acessar rota administrativa', async () => {
     writeActiveTripId(trip.id)
-    fetchMock.mockResolvedValueOnce(jsonResponse([trip]))
+    resourceHandler = (input) =>
+      Promise.resolve(
+        requestPath(input) === '/trips' ? jsonResponse([trip]) : jsonResponse([]),
+      )
     renderRoute('/admin', traveler)
 
     expect(
@@ -114,9 +149,9 @@ describe('rotas e layout protegido', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('exibe menus diferentes para admin e viajante', () => {
+  it('exibe menus diferentes para admin e viajante', async () => {
     const adminView = renderRoute('/admin/cadastros', admin)
-    const adminSidebar = screen.getByRole('complementary', {
+    const adminSidebar = await screen.findByRole('complementary', {
       name: 'Navegação principal',
     })
 
@@ -125,9 +160,8 @@ describe('rotas e layout protegido', () => {
     expect(within(adminSidebar).queryByText('Início')).not.toBeInTheDocument()
 
     adminView.unmount()
-    sessionStorage.clear()
     renderRoute('/viajante', traveler)
-    const travelerSidebar = screen.getByRole('complementary', {
+    const travelerSidebar = await screen.findByRole('complementary', {
       name: 'Navegação principal',
     })
 
@@ -142,17 +176,27 @@ describe('rotas e layout protegido', () => {
     writeActiveTripId(trip.id)
     renderRoute('/admin/cadastros', admin)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Sair' }))
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Sair' }),
+    )
 
     expect(
       await screen.findByRole('heading', { name: 'Bem-vindo(a)' }),
     ).toBeInTheDocument()
-    expect(readAuthSession()).toBeNull()
     expect(readActiveTripId()).toBeNull()
+    const logoutRequest = fetchMock.mock.calls.find(
+      ([input]) => requestPath(input) === '/auth/logout',
+    )
+    expect(logoutRequest?.[1]).toEqual(
+      expect.objectContaining({ method: 'POST', credentials: 'include' }),
+    )
   })
 
   it('seleciona uma viagem e atualiza o contexto do layout', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse([trip]))
+    resourceHandler = (input) =>
+      Promise.resolve(
+        requestPath(input) === '/trips' ? jsonResponse([trip]) : jsonResponse([]),
+      )
     renderRoute('/admin', admin)
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
@@ -170,7 +214,10 @@ describe('rotas e layout protegido', () => {
   })
 
   it('exige viagem em Configurações e permanece na rota após selecionar', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse([trip]))
+    resourceHandler = (input) =>
+      Promise.resolve(
+        requestPath(input) === '/trips' ? jsonResponse([trip]) : jsonResponse([]),
+      )
     renderRoute('/admin/configuracoes', admin)
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
@@ -192,7 +239,10 @@ describe('rotas e layout protegido', () => {
 
   it('restaura a viagem ativa persistida', async () => {
     writeActiveTripId(trip.id)
-    fetchMock.mockResolvedValueOnce(jsonResponse([trip]))
+    resourceHandler = (input) =>
+      Promise.resolve(
+        requestPath(input) === '/trips' ? jsonResponse([trip]) : jsonResponse([]),
+      )
     renderRoute('/admin', admin)
 
     expect(
@@ -208,7 +258,12 @@ describe('rotas e layout protegido', () => {
       name: 'Viagem de outro grupo',
       travelersJson: JSON.stringify([admin.cpf]),
     }
-    fetchMock.mockResolvedValueOnce(jsonResponse([trip, otherTrip]))
+    resourceHandler = (input) =>
+      Promise.resolve(
+        requestPath(input) === '/trips'
+          ? jsonResponse([trip, otherTrip])
+          : jsonResponse([]),
+      )
     renderRoute('/viajante', traveler)
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
@@ -222,18 +277,18 @@ describe('rotas e layout protegido', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('renderiza página 404 para rota inexistente', () => {
+  it('renderiza página 404 para rota inexistente', async () => {
     renderRoute('/endereco-inexistente')
 
     expect(
-      screen.getByRole('heading', { name: 'Página não encontrada' }),
+      await screen.findByRole('heading', { name: 'Página não encontrada' }),
     ).toBeInTheDocument()
     expect(screen.getByText('404')).toBeInTheDocument()
   })
 
-  it('abre e fecha a sidebar pelo controle mobile', () => {
+  it('abre e fecha a sidebar pelo controle mobile', async () => {
     renderRoute('/admin/cadastros', admin)
-    const sidebar = screen.getByRole('complementary', {
+    const sidebar = await screen.findByRole('complementary', {
       name: 'Navegação principal',
     })
     const menuButton = screen.getByLabelText('Abrir menu')
