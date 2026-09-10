@@ -46,7 +46,7 @@ export const navigationByRole: Record<UserRole, NavigationSection[]> = {
           path: '/admin/pagamentos',
           icon: 'creditCard',
           pageTitle: 'Pagamentos',
-          description: 'A gestão de pagamentos será migrada na Etapa 7.',
+          description: 'Planos, comprovantes e arrecadação da viagem ativa.',
           requiresTrip: true,
         },
         {
@@ -106,7 +106,7 @@ export const navigationByRole: Record<UserRole, NavigationSection[]> = {
           path: '/viajante/pagamento',
           icon: 'creditCard',
           pageTitle: 'Meu pagamento',
-          description: 'O conteúdo de pagamentos será migrado na Etapa 7.',
+          description: 'Parcelamento e comprovantes da viagem ativa.',
           requiresTrip: true,
         },
       ],

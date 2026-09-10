@@ -3,6 +3,8 @@ import { AdminDashboardPage } from '../../features/admin/dashboard/pages/AdminDa
 import { TripSettingsPage } from '../../features/admin/settings/pages/TripSettingsPage'
 import { TravelerDashboardPage } from '../../features/traveler/dashboard/pages/TravelerDashboardPage'
 import { navigationByRole } from '../../features/navigation/config/navigation'
+import { AdminPaymentsPage } from '../../features/payments/pages/AdminPaymentsPage'
+import { TravelerPaymentPage } from '../../features/payments/pages/TravelerPaymentPage'
 import { GlobalUsersPage } from '../../features/users/pages/GlobalUsersPage'
 import { TripTravelersPage } from '../../features/users/pages/TripTravelersPage'
 import { NotFoundPage } from '../../pages/NotFoundPage'
@@ -41,7 +43,7 @@ export function AppRouter() {
           />
           <Route
             path="/admin/pagamentos"
-            element={placeholderFor('/admin/pagamentos', 'admin')}
+            element={<AdminPaymentsPage />}
           />
           <Route
             path="/admin/transporte"
@@ -70,7 +72,7 @@ export function AppRouter() {
           />
           <Route
             path="/viajante/pagamento"
-            element={placeholderFor('/viajante/pagamento', 'traveler')}
+            element={<TravelerPaymentPage />}
           />
         </Route>
       </Route>
