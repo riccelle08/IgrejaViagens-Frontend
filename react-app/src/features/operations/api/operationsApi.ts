@@ -79,15 +79,6 @@ export function toSeat(value: unknown, index = 0): SeatRecord | null {
   }
 }
 
-async function putCollection(path: string, items: ApiRecord[], label: string) {
-  const response = await httpRequest<unknown>(path, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(items),
-  })
-  return records(response, label)
-}
-
 async function updateTripArray(
   tripId: string,
   field: 'busesJson' | 'hotelsJson',
@@ -96,13 +87,18 @@ async function updateTripArray(
   const current = records(await httpRequest<unknown>('/trips'), 'viagens')
   const targetIndex = current.findIndex((trip) => trip.id === tripId)
   if (targetIndex < 0) throw new Error('Viagem não encontrada.')
-  const next = [...current]
-  next[targetIndex] = {
+  const updated = {
     ...current[targetIndex],
     [field]: JSON.stringify(value),
   }
-  const persisted = await putCollection('/trips/bulk', next, 'viagens persistidas')
-  const saved = persisted.find((trip) => trip.id === tripId)
+  const saved = await httpRequest<Record<string, unknown>>(
+    `/trips/${encodeURIComponent(tripId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated),
+    },
+  )
   if (!saved || typeof saved[field] !== 'string') {
     throw new Error('O backend não confirmou a atualização da viagem.')
   }
@@ -137,15 +133,6 @@ export async function loadHotelSource(tripId: string): Promise<HotelSource> {
 }
 
 export async function saveRoomRecord(room: RoomRecord) {
-  const current = records(await httpRequest<unknown>('/rooms'), 'quartos')
-  const targetIndex = current.findIndex((item) => readString(item.id) === room.id)
-  if (
-    targetIndex >= 0 &&
-    readString(current[targetIndex].tripId) !== room.tripId
-  ) {
-    throw new Error('Este ID de quarto já pertence a outra viagem.')
-  }
-  const next = [...current]
   const normalized = {
     capacity: Math.max(1, Math.trunc(room.capacity) || 1),
     hotelId: room.hotelId,
@@ -155,13 +142,15 @@ export async function saveRoomRecord(room: RoomRecord) {
     tripId: room.tripId,
     type: room.type,
   }
-  if (targetIndex >= 0) {
-    next[targetIndex] = { ...current[targetIndex], ...normalized }
-  } else {
-    next.push(normalized)
-  }
-  const persisted = await putCollection('/rooms/bulk', next, 'quartos persistidos')
-  const saved = persisted.map(toRoom).find((item) => item?.id === room.id)
+  const persisted = await httpRequest<unknown>(
+    `/rooms/${encodeURIComponent(room.id)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(normalized),
+    },
+  )
+  const saved = toRoom(persisted)
   if (
     !saved ||
     saved.tripId !== normalized.tripId ||
@@ -178,25 +167,14 @@ export async function saveRoomRecord(room: RoomRecord) {
 }
 
 export async function deleteRoomRecords(tripId: string, roomIds: string[]) {
-  const targets = new Set(roomIds)
-  const current = records(await httpRequest<unknown>('/rooms'), 'quartos')
-  const next = current.filter(
-    (room) =>
-      !(
-        readString(room.tripId) === tripId &&
-        targets.has(readString(room.id))
+  await Promise.all(
+    [...new Set(roomIds)].map((id) =>
+      httpRequest<unknown>(
+        `/rooms/${encodeURIComponent(id)}?tripId=${encodeURIComponent(tripId)}`,
+        { method: 'DELETE' },
       ),
+    ),
   )
-  const persisted = await putCollection('/rooms/bulk', next, 'quartos persistidos')
-  if (
-    persisted.some(
-      (room) =>
-        readString(room.tripId) === tripId &&
-        targets.has(readString(room.id)),
-    )
-  ) {
-    throw new Error('O backend não confirmou a exclusão dos quartos.')
-  }
 }
 
 export async function loadTransportSource(
@@ -213,38 +191,6 @@ export async function loadTransportSource(
 }
 
 export async function saveSeatRecord(seat: SeatRecord) {
-  const current = records(await httpRequest<unknown>('/seats'), 'assentos')
-  const coordinateMatches = current.filter(
-    (item) =>
-      readString(item.tripId) === seat.tripId &&
-      readString(item.busId) === seat.busId &&
-      Math.trunc(readNumber(item.floor)) === seat.floor &&
-      Math.trunc(readNumber(item.seatNumber)) === seat.seatNumber,
-  )
-  if (coordinateMatches.length > 1) {
-    throw new Error('Há ocupações duplicadas neste assento. Libere-o antes de atribuir.')
-  }
-  const targetIndex = current.findIndex(
-    (item) => readString(item.id) === seat.id,
-  )
-  if (
-    coordinateMatches.length === 1 &&
-    readString(coordinateMatches[0].id) !== seat.id
-  ) {
-    throw new Error('Este assento foi ocupado antes da persistência. Recarregue a página.')
-  }
-  if (targetIndex >= 0) {
-    const currentSeat = toSeat(current[targetIndex])
-    if (
-      currentSeat &&
-      (currentSeat.tripId !== seat.tripId ||
-        currentSeat.busId !== seat.busId ||
-        currentSeat.floor !== seat.floor ||
-        currentSeat.seatNumber !== seat.seatNumber)
-    ) {
-      throw new Error('Este ID de assento já está associado a outra posição.')
-    }
-  }
   const normalized = {
     busId: seat.busId,
     floor: seat.floor,
@@ -253,11 +199,15 @@ export async function saveSeatRecord(seat: SeatRecord) {
     tripId: seat.tripId,
     userCpf: stripCpf(seat.userCpf),
   }
-  const next = [...current]
-  if (targetIndex >= 0) next[targetIndex] = { ...current[targetIndex], ...normalized }
-  else next.push(normalized)
-  const persisted = await putCollection('/seats/bulk', next, 'assentos persistidos')
-  const saved = persisted.map(toSeat).find((item) => item?.id === seat.id)
+  const persisted = await httpRequest<unknown>(
+    `/seats/${encodeURIComponent(seat.id)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(normalized),
+    },
+  )
+  const saved = toSeat(persisted)
   if (
     !saved ||
     saved.tripId !== normalized.tripId ||
@@ -276,17 +226,16 @@ export async function deleteSeats(
   predicate: (seat: SeatRecord) => boolean,
 ) {
   const current = records(await httpRequest<unknown>('/seats'), 'assentos')
-  const next = current.flatMap((item, index) => {
+  const targets = current.flatMap((item, index) => {
     const parsed = toSeat(item, index)
-    return parsed?.tripId === tripId && predicate(parsed) ? [] : [item]
+    return parsed?.tripId === tripId && predicate(parsed) ? [parsed.id] : []
   })
-  const persisted = await putCollection('/seats/bulk', next, 'assentos persistidos')
-  if (
-    persisted.some((item, index) => {
-      const parsed = toSeat(item, index)
-      return parsed?.tripId === tripId && predicate(parsed)
-    })
-  ) {
-    throw new Error('O backend não confirmou a liberação dos assentos.')
-  }
+  await Promise.all(
+    targets.map((id) =>
+      httpRequest<unknown>(
+        `/seats/${encodeURIComponent(id)}?tripId=${encodeURIComponent(tripId)}`,
+        { method: 'DELETE' },
+      ),
+    ),
+  )
 }

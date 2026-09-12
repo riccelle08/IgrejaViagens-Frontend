@@ -96,6 +96,12 @@ describe('rotas e layout protegido', () => {
             : new Response(null, { status: 401 }),
         )
       }
+      if (path === '/auth/csrf') {
+        return Promise.resolve(jsonResponse({
+          headerName: 'X-XSRF-TOKEN',
+          token: 'csrf-test-token',
+        }))
+      }
       if (path === '/auth/logout') {
         authenticatedSessionUser = null
         return Promise.resolve(new Response(null, { status: 204 }))

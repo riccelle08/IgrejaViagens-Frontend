@@ -9,6 +9,16 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+function pathOf(input: RequestInfo | URL) {
+  const value =
+    input instanceof Request
+      ? input.url
+      : input instanceof URL
+        ? input.href
+        : input
+  return new URL(value, 'http://localhost').pathname
+}
+
 const mutation: PaymentMutation = {
   dueDay: 15,
   id: 'payment-1',
@@ -32,55 +42,40 @@ const mutation: PaymentMutation = {
 describe('paymentApi', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('preserva campos desconhecidos do pagamento e dos comprovantes', async () => {
-    let persisted: Array<Record<string, unknown>> = []
+  it('salva somente o pagamento alterado no endpoint granular', async () => {
+    let persisted: Record<string, unknown> = {}
+    const paths: string[] = []
     vi.stubGlobal(
       'fetch',
-      vi.fn<typeof fetch>((_input, init) => {
+      vi.fn<typeof fetch>((input, init) => {
+        if (input === '/auth/csrf') {
+          return Promise.resolve(jsonResponse({
+            headerName: 'X-XSRF-TOKEN',
+            token: 'csrf-test-token',
+          }))
+        }
         if (init?.method === 'PUT') {
           if (typeof init.body !== 'string') throw new Error('Corpo ausente.')
-          persisted = JSON.parse(init.body) as Array<Record<string, unknown>>
+          paths.push(pathOf(input))
+          persisted = JSON.parse(init.body) as Record<string, unknown>
           return Promise.resolve(jsonResponse(persisted))
         }
-        return Promise.resolve(
-          jsonResponse([
-            {
-              id: 'payment-1',
-              userCpf: '11144477735',
-              tripId: 'trip-1',
-              totalInstallments: 2,
-              paidInstallments: 0,
-              dueDay: 10,
-              locked: false,
-              auditField: 'preservado',
-              receiptsJson: JSON.stringify({
-                1: {
-                  status: 'pending',
-                  filename: 'recibo.png',
-                  type: 'image/png',
-                  data: 'data:image/png;base64,AA==',
-                  providerChecksum: 'preservado',
-                },
-              }),
-            },
-          ]),
-        )
+        return Promise.resolve(jsonResponse([]))
       }),
     )
 
     const saved = await savePayment(mutation)
 
-    expect(persisted[0]).toMatchObject({
-      auditField: 'preservado',
+    expect(paths).toEqual(['/payments/payment-1'])
+    expect(persisted).toMatchObject({
       totalInstallments: 3,
       dueDay: 15,
     })
-    const receipts = JSON.parse(String(persisted[0].receiptsJson)) as Record<
+    const receipts = JSON.parse(String(persisted.receiptsJson)) as Record<
       string,
       Record<string, unknown>
     >
     expect(receipts['1']).toMatchObject({
-      providerChecksum: 'preservado',
       status: 'approved',
     })
     expect(saved.totalInstallments).toBe(3)
@@ -89,11 +84,13 @@ describe('paymentApi', () => {
   it('não confirma persistência quando o backend devolve erro', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn<typeof fetch>((_input, init) =>
-        Promise.resolve(
+      vi.fn<typeof fetch>((input, init) =>
+        Promise.resolve(input === '/auth/csrf'
+          ? jsonResponse({ headerName: 'X-XSRF-TOKEN', token: 'csrf-test-token' })
+          :
           init?.method === 'PUT'
             ? jsonResponse({ message: 'Falha controlada' }, 500)
-            : jsonResponse([]),
+            : jsonResponse([])
         ),
       ),
     )

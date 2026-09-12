@@ -7,7 +7,11 @@ import {
 } from 'react'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { deleteTripWithCompatibility } from '../api/tripCompatibilityApi'
-import { listTrips, replaceTrips } from '../api/tripApi'
+import {
+  createTripRecord,
+  listTrips,
+  updateTripRecord,
+} from '../api/tripApi'
 import type { Trip, TripMutation } from '../model/tripTypes'
 import {
   clearActiveTripId,
@@ -104,17 +108,15 @@ export function TripProvider({ children }: PropsWithChildren) {
         travelersJson: '[]',
         travelerCpfs: [],
       }
-      const persistedTrips = await replaceTrips([...trips, createdTrip])
-      const persistedTrip =
-        persistedTrips.find((trip) => trip.id === id) ?? createdTrip
+      const persistedTrip = await createTripRecord(createdTrip)
 
-      setTrips(persistedTrips)
+      setTrips((current) => [...current, persistedTrip])
       writeActiveTripId(persistedTrip.id)
       setActiveTripId(persistedTrip.id)
       setIsSelectorOpen(false)
       return persistedTrip
     },
-    [trips],
+    [],
   )
 
   const updateTrip = useCallback(
@@ -130,13 +132,11 @@ export function TripProvider({ children }: PropsWithChildren) {
         travelersJson: currentTrip.travelersJson,
         travelerCpfs: currentTrip.travelerCpfs,
       }
-      const persistedTrips = await replaceTrips(
-        trips.map((trip) => (trip.id === tripId ? updatedTrip : trip)),
-      )
-      const persistedTrip =
-        persistedTrips.find((trip) => trip.id === tripId) ?? updatedTrip
+      const persistedTrip = await updateTripRecord(updatedTrip)
 
-      setTrips(persistedTrips)
+      setTrips((current) =>
+        current.map((trip) => (trip.id === tripId ? persistedTrip : trip)),
+      )
       return persistedTrip
     },
     [trips],

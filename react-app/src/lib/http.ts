@@ -29,7 +29,14 @@ interface RequestOptions extends RequestInit {
 
 type UnauthorizedListener = () => void
 
+interface CsrfCredentials {
+  headerName: string
+  token: string
+}
+
 const unauthorizedListeners = new Set<UnauthorizedListener>()
+let csrfCredentials: CsrfCredentials | null = null
+let csrfRequest: Promise<CsrfCredentials> | null = null
 
 export function subscribeToUnauthorized(listener: UnauthorizedListener) {
   unauthorizedListeners.add(listener)
@@ -39,7 +46,13 @@ export function subscribeToUnauthorized(listener: UnauthorizedListener) {
 }
 
 function notifyUnauthorized() {
+  resetHttpSecurityState()
   unauthorizedListeners.forEach((listener) => listener())
+}
+
+export function resetHttpSecurityState() {
+  csrfCredentials = null
+  csrfRequest = null
 }
 
 function resolveUrl(path: string) {
@@ -59,6 +72,41 @@ async function parseResponse(response: Response) {
   return text || null
 }
 
+function isUnsafeMethod(method?: string) {
+  return ['DELETE', 'PATCH', 'POST', 'PUT'].includes(
+    (method ?? 'GET').toUpperCase(),
+  )
+}
+
+async function loadCsrfCredentials(timeoutMs: number) {
+  if (csrfCredentials) return csrfCredentials
+  if (csrfRequest) return csrfRequest
+
+  csrfRequest = httpRequest<unknown>('/auth/csrf', {
+    timeoutMs,
+    skipUnauthorizedNotification: true,
+  })
+    .then((payload) => {
+      if (typeof payload !== 'object' || payload === null) {
+        throw new Error('Resposta de proteção CSRF inválida.')
+      }
+      const source = payload as Record<string, unknown>
+      if (typeof source.headerName !== 'string' || typeof source.token !== 'string') {
+        throw new Error('Resposta de proteção CSRF inválida.')
+      }
+      csrfCredentials = {
+        headerName: source.headerName,
+        token: source.token,
+      }
+      return csrfCredentials
+    })
+    .finally(() => {
+      csrfRequest = null
+    })
+
+  return csrfRequest
+}
+
 export async function httpRequest<T>(
   path: string,
   options: RequestOptions = {},
@@ -69,6 +117,14 @@ export async function httpRequest<T>(
     skipUnauthorizedNotification = false,
     ...requestOptions
   } = options
+  const requestHeaders = new Headers(headers)
+  if (!requestHeaders.has('Accept')) {
+    requestHeaders.set('Accept', 'application/json')
+  }
+  if (isUnsafeMethod(requestOptions.method)) {
+    const csrf = await loadCsrfCredentials(timeoutMs)
+    requestHeaders.set(csrf.headerName, csrf.token)
+  }
   const abortController = new AbortController()
   const timeout = window.setTimeout(() => abortController.abort(), timeoutMs)
 
@@ -76,10 +132,7 @@ export async function httpRequest<T>(
     const response = await fetch(resolveUrl(path), {
       ...requestOptions,
       credentials: 'include',
-      headers: {
-        Accept: 'application/json',
-        ...headers,
-      },
+      headers: requestHeaders,
       signal: abortController.signal,
     })
     const payload = await parseResponse(response)

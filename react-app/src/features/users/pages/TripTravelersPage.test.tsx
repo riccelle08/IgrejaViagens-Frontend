@@ -143,12 +143,17 @@ describe('TripTravelersPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Novo viajante' }))
     await userEvent.type(screen.getByLabelText('Nome completo *'), 'Novo Viajante')
     await userEvent.type(screen.getByLabelText('CPF *'), '93541134780')
+    await userEvent.type(screen.getByLabelText('Senha inicial *'), 'senha-temporaria')
     await userEvent.click(screen.getByRole('button', { name: 'Salvar usuário' }))
 
     await waitFor(() => expect(mocks.createTraveler).toHaveBeenCalled())
     expect(mocks.createTraveler).toHaveBeenCalledWith(
       '93541134780',
-      expect.objectContaining({ role: 'traveler', firstLogin: true }),
+      expect.objectContaining({
+        role: 'traveler',
+        firstLogin: true,
+        initialPassword: 'senha-temporaria',
+      }),
       trip.id,
     )
   })

@@ -49,7 +49,13 @@ describe('usersApi', () => {
 
   it('edita por endpoint granular preservando campos desconhecidos do servidor', async () => {
     let persisted: Record<string, unknown> | null = null
-    const fetchMock = vi.fn<typeof fetch>((_input, init) => {
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      if (input === '/auth/csrf') {
+        return Promise.resolve(jsonResponse({
+          headerName: 'X-XSRF-TOKEN',
+          token: 'csrf-test-token',
+        }))
+      }
       if (init?.method === 'PUT') {
         if (typeof init.body !== 'string') throw new Error('Corpo não informado.')
         persisted = JSON.parse(init.body) as Record<string, unknown>
@@ -79,6 +85,6 @@ describe('usersApi', () => {
       serverMetadata: { version: 7 },
     })
     expect(updated).not.toHaveProperty('password')
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 })

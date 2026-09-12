@@ -140,12 +140,25 @@ export async function listTrips() {
   return parseTripList(response)
 }
 
-export async function replaceTrips(trips: Trip[]) {
-  const response = await httpRequest<unknown>('/trips/bulk', {
-    method: 'PUT',
+async function persistTrip(path: string, method: 'POST' | 'PUT', trip: Trip) {
+  const response = await httpRequest<unknown>(path, {
+    method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(trips.map(tripToApi)),
+    body: JSON.stringify(tripToApi(trip)),
   })
+  const persisted = toTrip(response)
+  if (!persisted) throw new Error('Resposta de viagem inválida.')
+  return persisted
+}
 
-  return parseTripList(response)
+export function createTripRecord(trip: Trip) {
+  return persistTrip('/trips', 'POST', trip)
+}
+
+export function updateTripRecord(trip: Trip) {
+  return persistTrip(
+    `/trips/${encodeURIComponent(trip.id)}`,
+    'PUT',
+    trip,
+  )
 }

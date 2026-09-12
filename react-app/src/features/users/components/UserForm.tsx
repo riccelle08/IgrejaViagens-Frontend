@@ -126,6 +126,24 @@ export function UserForm({
                   value={values.birthdate}
                 />
               </label>
+              {!isEditing ? (
+                <label className="user-field">
+                  Senha inicial *
+                  <input
+                    autoComplete="new-password"
+                    disabled={isSaving}
+                    minLength={8}
+                    onChange={(event) =>
+                      setValues({
+                        ...values,
+                        initialPassword: event.currentTarget.value,
+                      })
+                    }
+                    type="password"
+                    value={values.initialPassword}
+                  />
+                </label>
+              ) : null}
               <label className="user-field">
                 Papel no sistema
                 <select

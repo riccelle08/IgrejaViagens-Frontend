@@ -79,14 +79,15 @@ export async function listUsers() {
 
 export async function createUser(cpfValue: string, mutation: UserMutation) {
   const cpf = stripCpf(cpfValue)
+  if (!mutation.initialPassword || mutation.initialPassword.length < 8) {
+    throw new Error('A senha inicial deve ter ao menos 8 caracteres.')
+  }
   const response = await httpRequest<unknown>('/users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       ...mutationToApi(cpf, mutation),
-      // Compatibilidade obrigatória com o login legado. A senha inicial não
-      // atravessa componentes, estado, storage, mensagens ou logs.
-      password: 'acess@123',
+      password: mutation.initialPassword,
     }),
   })
   const user = toSystemUser(response)
@@ -110,8 +111,8 @@ export async function updateUser(cpfValue: string, mutation: UserMutation) {
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      // O merge ocorre somente nesta função e preserva campos que o formulário
-      // desconhece, inclusive credenciais que o backend exige no PUT integral.
+      // O merge preserva campos que o formulário desconhece. A senha não é
+      // alterada porque o backend mantém a credencial quando o campo é omitido.
       body: JSON.stringify({ ...current, ...mutationToApi(cpf, mutation) }),
     },
   )

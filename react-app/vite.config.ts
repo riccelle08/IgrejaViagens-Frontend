@@ -9,6 +9,7 @@ const backendPaths = [
   '/seats',
   '/rooms',
   '/buses',
+  '/health',
 ]
 
 export default defineConfig(({ mode }) => {

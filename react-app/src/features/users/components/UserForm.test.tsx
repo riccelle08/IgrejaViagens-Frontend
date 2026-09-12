@@ -6,7 +6,7 @@ import { UserForm } from './UserForm'
 describe('UserForm', () => {
   afterEach(() => cleanup())
 
-  it('envia spouseName e filhos sem manter campo de senha no formulário', async () => {
+  it('envia dados familiares e uma senha inicial definida pelo administrador', async () => {
     const submit = vi.fn().mockResolvedValue(undefined)
     const view = render(
       <UserForm
@@ -16,11 +16,12 @@ describe('UserForm', () => {
       />,
     )
 
-    expect(view.container.querySelector('input[type="password"]')).toBeNull()
+    expect(view.container.querySelector('input[type="password"]')).not.toBeNull()
     expect(view.container.innerHTML).not.toContain('acess@123')
 
     await userEvent.type(screen.getByLabelText('Nome completo *'), 'Ana Lima')
     await userEvent.type(screen.getByLabelText('CPF *'), '11144477735')
+    await userEvent.type(screen.getByLabelText('Senha inicial *'), 'senha-segura')
     await userEvent.click(screen.getByLabelText('Casado(a)'))
     await userEvent.type(screen.getByLabelText('Nome do cônjuge'), 'Bruno Lima')
     await userEvent.click(screen.getByLabelText('Tem filhos'))
@@ -38,6 +39,7 @@ describe('UserForm', () => {
         spouseName: 'Bruno Lima',
         hasKids: true,
         kids: ['Lia', 'Caio'],
+        initialPassword: 'senha-segura',
       }),
     )
   })
@@ -54,6 +56,7 @@ describe('UserForm', () => {
 
     await userEvent.type(screen.getByLabelText('Nome completo *'), 'Ana Lima')
     await userEvent.type(screen.getByLabelText('CPF *'), '11144477735')
+    await userEvent.type(screen.getByLabelText('Senha inicial *'), 'senha-segura')
     await userEvent.click(screen.getByRole('button', { name: 'Salvar usuário' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Falha controlada')

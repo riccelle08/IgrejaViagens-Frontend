@@ -1,8 +1,9 @@
 import { isValidCpf, stripCpf } from '../../../shared/validation/cpf'
 import type { SystemUser, UserMutation } from '../model/userTypes'
 
-export interface UserFormValues extends UserMutation {
+export interface UserFormValues extends Omit<UserMutation, 'initialPassword'> {
   cpf: string
+  initialPassword: string
 }
 
 export function createEmptyUserForm(
@@ -13,6 +14,7 @@ export function createEmptyUserForm(
     cpf: '',
     firstLogin: true,
     hasKids: false,
+    initialPassword: '',
     kids: [],
     married: false,
     name: '',
@@ -27,6 +29,7 @@ export function userToForm(user: SystemUser): UserFormValues {
     cpf: user.cpf,
     firstLogin: user.firstLogin,
     hasKids: user.hasKids,
+    initialPassword: '',
     kids: [...user.kids],
     married: user.married,
     name: user.name,
@@ -38,6 +41,9 @@ export function userToForm(user: SystemUser): UserFormValues {
 export function validateUserForm(values: UserFormValues, isEditing: boolean) {
   if (!values.name.trim()) throw new Error('Informe o nome completo.')
   if (!isEditing && !isValidCpf(values.cpf)) throw new Error('CPF inválido.')
+  if (!isEditing && values.initialPassword.length < 8) {
+    throw new Error('A senha inicial deve ter ao menos 8 caracteres.')
+  }
   if (values.married && !values.spouseName.trim()) {
     throw new Error('Informe o nome do cônjuge.')
   }
@@ -66,6 +72,7 @@ export function userFormSubmission(
     name: values.name.trim(),
     role: values.role,
     spouseName: values.married ? values.spouseName.trim() : '',
+    ...(!isEditing ? { initialPassword: values.initialPassword } : {}),
   }
   return { cpf, mutation }
 }

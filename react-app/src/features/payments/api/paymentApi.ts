@@ -73,41 +73,6 @@ function parseReceipts(value: unknown) {
   }
 }
 
-function jsonObject(value: unknown): ApiRecord {
-  if (typeof value !== 'string' || !value.trim()) return {}
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
-      ? (parsed as ApiRecord)
-      : {}
-  } catch {
-    return {}
-  }
-}
-
-function mergeReceiptFields(currentValue: unknown, nextValue: string) {
-  const current = jsonObject(currentValue)
-  const next = jsonObject(nextValue)
-  return JSON.stringify(
-    Object.fromEntries(
-      Object.entries(next).map(([installment, receipt]) => {
-        const currentReceipt = current[installment]
-        const preserved =
-          typeof currentReceipt === 'object' &&
-          currentReceipt !== null &&
-          !Array.isArray(currentReceipt)
-            ? currentReceipt
-            : {}
-        const updated =
-          typeof receipt === 'object' && receipt !== null && !Array.isArray(receipt)
-            ? receipt
-            : {}
-        return [installment, { ...preserved, ...updated }]
-      }),
-    ),
-  )
-}
-
 export function toPayment(value: unknown): PaymentRecord | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return null
@@ -165,51 +130,17 @@ function normalizeMutation(mutation: PaymentMutation) {
   }
 }
 
-async function persistAll(items: ApiRecord[]) {
-  const response = await httpRequest<unknown>('/payments/bulk', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(items),
-  })
-  return records(response, 'pagamentos persistidos')
-}
-
-/**
- * O PUT bulk é o único contrato permitido que edita pagamentos. Uma leitura
- * imediatamente anterior permite preservar registros e campos desconhecidos.
- */
 export async function savePayment(mutation: PaymentMutation) {
-  const current = records(
-    await httpRequest<unknown>('/payments'),
-    'pagamentos',
-  )
   const normalized = normalizeMutation(mutation)
-  const targetIndex = current.findIndex((payment) => {
-    const parsed = toPayment(payment)
-    return mutation.id
-      ? parsed?.id === mutation.id
-      : parsed?.tripId === normalized.tripId &&
-          parsed.userCpf === normalized.userCpf
-  })
-
-  const next = [...current]
-  if (targetIndex >= 0) {
-    next[targetIndex] = {
-      ...current[targetIndex],
-      ...normalized,
-      receiptsJson: mergeReceiptFields(
-        current[targetIndex].receiptsJson,
-        normalized.receiptsJson,
-      ),
-    }
-  } else {
-    next.push(normalized)
-  }
-
-  const persisted = await persistAll(next)
-  const saved = persisted
-    .map(toPayment)
-    .find((payment) => payment?.id === normalized.id)
+  const persisted = await httpRequest<unknown>(
+    `/payments/${encodeURIComponent(normalized.id)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(normalized),
+    },
+  )
+  const saved = toPayment(persisted)
   if (!saved) throw new Error('O backend não confirmou o pagamento persistido.')
   return saved
 }

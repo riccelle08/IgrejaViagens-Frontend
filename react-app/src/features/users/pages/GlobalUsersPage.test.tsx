@@ -66,9 +66,14 @@ describe('GlobalUsersPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Novo usuário' }))
     await userEvent.type(screen.getByLabelText('Nome completo *'), 'Carla Souza')
     await userEvent.type(screen.getByLabelText('CPF *'), '93541134780')
+    await userEvent.type(screen.getByLabelText('Senha inicial *'), 'senha-temporaria')
     await userEvent.click(screen.getByRole('button', { name: 'Salvar usuário' }))
 
     await waitFor(() => expect(mocks.createUser).toHaveBeenCalled())
+    expect(mocks.createUser).toHaveBeenCalledWith(
+      '93541134780',
+      expect.objectContaining({ initialPassword: 'senha-temporaria' }),
+    )
     expect(await screen.findByText('Usuário cadastrado com sucesso.')).toBeInTheDocument()
   })
 

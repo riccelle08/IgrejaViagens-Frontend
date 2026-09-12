@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  deleteRoomRecords,
+  deleteSeats,
   saveBusStructure,
   saveHotelStructure,
   saveRoomRecord,
@@ -36,6 +38,12 @@ function backend(data: Record<string, unknown>, putStatus = 200) {
     vi.fn<typeof fetch>((input, init) => {
       const path = pathOf(input)
       const method = init?.method ?? 'GET'
+      if (path === '/auth/csrf') {
+        return Promise.resolve(jsonResponse({
+          headerName: 'X-XSRF-TOKEN',
+          token: 'csrf-test-token',
+        }))
+      }
       const body: unknown =
         typeof init?.body === 'string' ? JSON.parse(init.body) : undefined
       requests.push({ body, method, path })
@@ -52,10 +60,10 @@ function backend(data: Record<string, unknown>, putStatus = 200) {
   return requests
 }
 
-function putBody(requests: CapturedRequest[], path: string) {
+function requestBody(requests: CapturedRequest[], path: string) {
   return requests.find(
     (request) => request.method === 'PUT' && request.path === path,
-  )?.body as Array<Record<string, unknown>> | undefined
+  )?.body as Record<string, unknown> | undefined
 }
 
 describe('operationsApi', () => {
@@ -80,19 +88,19 @@ describe('operationsApi', () => {
       seats: 20,
     }])
 
-    const writes = requests.filter((request) => request.path === '/trips/bulk')
-    expect((writes[0].body as Array<Record<string, unknown>>)[0]).toMatchObject({
+    const writes = requests.filter((request) => request.path === '/trips/trip-1')
+    expect(writes[0].body).toMatchObject({
       id: 'trip-1',
       serverRevision: 13,
       travelersJson: '["11144477735"]',
     })
-    expect((writes[1].body as Array<Record<string, unknown>>)[0]).toMatchObject({
+    expect(writes[1].body).toMatchObject({
       id: 'trip-1',
       serverRevision: 13,
     })
   })
 
-  it('preserva IDs e campos desconhecidos de quartos e assentos', async () => {
+  it('persiste somente o quarto e o assento alterados em endpoints granulares', async () => {
     const requests = backend({
       '/rooms': [{
         id: 'room-existing',
@@ -133,19 +141,58 @@ describe('operationsApi', () => {
       userCpf: '52998224725',
     })
 
-    expect(putBody(requests, '/rooms/bulk')?.[0]).toMatchObject({
+    expect(requestBody(requests, '/rooms/room-existing')).toMatchObject({
       id: 'room-existing',
-      providerCode: 'room-preserved',
       occupants: ['11144477735'],
       capacity: 3,
     })
-    expect(putBody(requests, '/seats/bulk')?.[0]).toMatchObject({
+    expect(requestBody(requests, '/seats/seat-existing')).toMatchObject({
       id: 'seat-existing',
-      providerCode: 'seat-preserved',
       floor: 2,
       seatNumber: 8,
       userCpf: '52998224725',
     })
+    expect(requests.some((request) => request.path.endsWith('/bulk'))).toBe(false)
+  })
+
+  it('exclui quartos e assentos por ID sem substituir coleções', async () => {
+    const requests = backend({
+      '/seats': [
+        {
+          id: 'seat-target',
+          tripId: 'trip-1',
+          busId: 'bus-1',
+          floor: 1,
+          seatNumber: 4,
+          userCpf: '11144477735',
+        },
+        {
+          id: 'seat-other',
+          tripId: 'trip-2',
+          busId: 'bus-2',
+          floor: 1,
+          seatNumber: 4,
+          userCpf: '52998224725',
+        },
+      ],
+    })
+
+    await deleteRoomRecords('trip-1', ['room-1', 'room-2'])
+    await deleteSeats('trip-1', (seat) => seat.busId === 'bus-1')
+
+    expect(requests.filter((request) => request.method === 'DELETE')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: '/rooms/room-1' }),
+        expect.objectContaining({ path: '/rooms/room-2' }),
+        expect.objectContaining({ path: '/seats/seat-target' }),
+      ]),
+    )
+    expect(
+      requests.some(
+        (request) =>
+          request.method === 'DELETE' && request.path === '/seats/seat-other',
+      ),
+    ).toBe(false)
   })
 
   it('propaga erro de persistência sem confirmar sucesso', async () => {

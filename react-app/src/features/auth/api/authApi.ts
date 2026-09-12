@@ -1,4 +1,4 @@
-import { httpRequest } from '../../../lib/http'
+import { httpRequest, resetHttpSecurityState } from '../../../lib/http'
 import { stripCpf } from '../../../shared/validation/cpf'
 import type { AuthUser, LoginCredentials, UserRole } from '../model/authTypes'
 
@@ -67,7 +67,11 @@ export async function login(credentials: LoginCredentials) {
 }
 
 export async function logout() {
-  await httpRequest<null>('/auth/logout', { method: 'POST' })
+  try {
+    await httpRequest<null>('/auth/logout', { method: 'POST' })
+  } finally {
+    resetHttpSecurityState()
+  }
 }
 
 export async function completeFirstAccess(

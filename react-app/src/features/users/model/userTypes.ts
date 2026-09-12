@@ -21,6 +21,7 @@ export interface UserMutation {
   name: string
   role: UserRole
   spouseName: string
+  initialPassword?: string
 }
 
 export interface ReceiptSummary {

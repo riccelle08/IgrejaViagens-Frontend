@@ -17,6 +17,11 @@ const apiUser = {
   kids: [],
 }
 
+const csrfPayload = {
+  headerName: 'X-XSRF-TOKEN',
+  token: 'csrf-test-token',
+}
+
 function jsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), {
     status: 200,
@@ -54,6 +59,7 @@ describe('LoginPage', () => {
 
   it('autentica com CPF sem mascara e descarta a senha da resposta', async () => {
     fetchMock
+      .mockResolvedValueOnce(jsonResponse(csrfPayload))
       .mockResolvedValueOnce(jsonResponse(apiUser))
       .mockResolvedValueOnce(jsonResponse(apiUser))
     const onAuthenticated = vi.fn<(user: AuthUser) => void>()
@@ -65,7 +71,8 @@ describe('LoginPage', () => {
 
     await waitFor(() => expect(onAuthenticated).toHaveBeenCalledOnce())
 
-    const [requestUrl, requestOptions] = fetchMock.mock.calls[0]
+    expect(fetchMock.mock.calls[0][0]).toBe('/auth/csrf')
+    const [requestUrl, requestOptions] = fetchMock.mock.calls[1]
     expect(requestUrl).toBe('/auth/login')
     expect(requestOptions).toEqual(
       expect.objectContaining({ method: 'POST' }),
@@ -77,8 +84,11 @@ describe('LoginPage', () => {
     expect(requestOptions).toEqual(
       expect.objectContaining({ credentials: 'include' }),
     )
-    expect(fetchMock.mock.calls[1][0]).toBe('/auth/me')
-    expect(fetchMock.mock.calls[1][1]).toEqual(
+    expect((requestOptions?.headers as Headers).get('X-XSRF-TOKEN')).toBe(
+      'csrf-test-token',
+    )
+    expect(fetchMock.mock.calls[2][0]).toBe('/auth/me')
+    expect(fetchMock.mock.calls[2][1]).toEqual(
       expect.objectContaining({ credentials: 'include' }),
     )
 
@@ -88,12 +98,14 @@ describe('LoginPage', () => {
   })
 
   it('apresenta a mensagem correta quando a API responde 401', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response('CPF ou senha incorretos.', {
-        status: 401,
-        headers: { 'Content-Type': 'text/plain' },
-      }),
-    )
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(csrfPayload))
+      .mockResolvedValueOnce(
+        new Response('CPF ou senha incorretos.', {
+          status: 401,
+          headers: { 'Content-Type': 'text/plain' },
+        }),
+      )
     const onAuthenticated = vi.fn<(user: AuthUser) => void>()
     render(<LoginPage onAuthenticated={onAuthenticated} />)
 
@@ -108,6 +120,7 @@ describe('LoginPage', () => {
 
   it('conclui primeiro acesso com PUT individual e so entao cria a sessao', async () => {
     fetchMock
+      .mockResolvedValueOnce(jsonResponse(csrfPayload))
       .mockResolvedValueOnce(jsonResponse({ ...apiUser, firstLogin: true }))
       .mockResolvedValueOnce(jsonResponse({ ...apiUser, firstLogin: true }))
       .mockResolvedValueOnce(
@@ -130,9 +143,9 @@ describe('LoginPage', () => {
     )
 
     await waitFor(() => expect(onAuthenticated).toHaveBeenCalledOnce())
-    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(fetchMock).toHaveBeenCalledTimes(5)
 
-    const [requestUrl, requestOptions] = fetchMock.mock.calls[2]
+    const [requestUrl, requestOptions] = fetchMock.mock.calls[3]
     expect(requestUrl).toBe('/users/52998224725')
     expect(requestOptions).toEqual(expect.objectContaining({ method: 'PUT' }))
     expect(parseRequestBody(requestOptions)).toEqual({
@@ -148,7 +161,7 @@ describe('LoginPage', () => {
       kids: [],
     })
     expect(requestUrl).not.toContain('/bulk')
-    expect(fetchMock.mock.calls[3][0]).toBe('/auth/me')
+    expect(fetchMock.mock.calls[4][0]).toBe('/auth/me')
 
     const authenticatedUser = onAuthenticated.mock.calls[0][0]
     expect(authenticatedUser).not.toHaveProperty('password')

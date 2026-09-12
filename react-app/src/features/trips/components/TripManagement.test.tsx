@@ -93,8 +93,15 @@ describe('gestão de viagens e configurações', () => {
     fetchMock.mockReset()
     resourceHandler = () => Promise.resolve(jsonResponse([]))
     fetchMock.mockImplementation((input, init) => {
-      if (requestPath(input) === '/auth/me') {
+      const path = requestPath(input)
+      if (path === '/auth/me') {
         return Promise.resolve(jsonResponse(admin))
+      }
+      if (path === '/auth/csrf') {
+        return Promise.resolve(jsonResponse({
+          headerName: 'X-XSRF-TOKEN',
+          token: 'csrf-test-token',
+        }))
       }
       return resourceHandler(input, init)
     })
@@ -107,12 +114,12 @@ describe('gestão de viagens e configurações', () => {
   })
 
   it('cria uma viagem, persiste a meta e a torna ativa', async () => {
-    const savedTripBodies: Array<Record<string, unknown>[]> = []
+    const savedTripBodies: Array<Record<string, unknown>> = []
     resourceHandler = (input, init) => {
       const path = requestPath(input)
       if (path === '/trips' && !init?.method) return Promise.resolve(jsonResponse([]))
-      if (path === '/trips/bulk' && init?.method === 'PUT') {
-        const body = parseRequestBody(init) as Array<Record<string, unknown>>
+      if (path === '/trips' && init?.method === 'POST') {
+        const body = parseRequestBody(init) as Record<string, unknown>
         savedTripBodies.push(body)
         return Promise.resolve(jsonResponse(body))
       }
@@ -136,7 +143,7 @@ describe('gestão de viagens e configurações', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Salvar viagem' }))
 
     await waitFor(() => expect(savedTripBodies).toHaveLength(1))
-    expect(savedTripBodies[0][0]).toMatchObject({
+    expect(savedTripBodies[0]).toMatchObject({
       name: 'Conferência 2028',
       departurePlace: 'Brasília',
       destination: 'Caldas Novas',
@@ -144,20 +151,20 @@ describe('gestão de viagens e configurações', () => {
       hotelsJson: '[]',
       travelersJson: '[]',
     })
-    expect(readActiveTripId()).toBe(String(savedTripBodies[0][0].id))
+    expect(readActiveTripId()).toBe(String(savedTripBodies[0].id))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('edita viagem, configura ônibus e preserva hotéis, viajantes e IDs', async () => {
-    let persistedBody: Array<Record<string, unknown>> | null = null
+    let persistedBody: Record<string, unknown> | null = null
     writeActiveTripId(rawTrip.id)
     resourceHandler = (input, init) => {
       const path = requestPath(input)
       if (path === '/trips' && !init?.method) {
         return Promise.resolve(jsonResponse([rawTrip]))
       }
-      if (path === '/trips/bulk' && init?.method === 'PUT') {
-        persistedBody = parseRequestBody(init) as Array<Record<string, unknown>>
+      if (path === '/trips/trip-1' && init?.method === 'PUT') {
+        persistedBody = parseRequestBody(init) as Record<string, unknown>
         return Promise.resolve(jsonResponse(persistedBody))
       }
       return Promise.resolve(jsonResponse([]))
@@ -193,9 +200,7 @@ describe('gestão de viagens e configurações', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Salvar viagem' }))
 
     await waitFor(() => expect(persistedBody).not.toBeNull())
-    const persistedTrip = (
-      persistedBody as Array<Record<string, unknown>> | null
-    )?.[0]
+    const persistedTrip = persistedBody as Record<string, unknown> | null
     expect(persistedTrip).toMatchObject({
       id: rawTrip.id,
       destination: 'Pirenópolis',
@@ -216,32 +221,17 @@ describe('gestão de viagens e configurações', () => {
     })
   })
 
-  it('só exclui após confirmação e limpa coleções vinculadas', async () => {
-    const putBodies = new Map<string, unknown>()
+  it('só exclui após confirmação e delega a limpeza atômica ao backend', async () => {
+    const deleteRequests: string[] = []
     writeActiveTripId(rawTrip.id)
     resourceHandler = (input, init) => {
       const path = requestPath(input)
       if (path === '/trips' && !init?.method) {
         return Promise.resolve(jsonResponse([rawTrip]))
       }
-      if (path === '/payments') {
-        return Promise.resolve(
-          jsonResponse([
-            { id: 'p1', tripId: rawTrip.id },
-            { id: 'p2', tripId: 'other' },
-          ]),
-        )
-      }
-      if (path === '/seats') {
-        return Promise.resolve(jsonResponse([{ id: 's1', tripId: rawTrip.id }]))
-      }
-      if (path === '/rooms') {
-        return Promise.resolve(jsonResponse([{ id: 'r1', tripId: rawTrip.id }]))
-      }
-      if (init?.method === 'PUT') {
-        const body = parseRequestBody(init)
-        putBodies.set(path, body)
-        return Promise.resolve(jsonResponse(body))
+      if (init?.method === 'DELETE') {
+        deleteRequests.push(path)
+        return Promise.resolve(new Response(null, { status: 204 }))
       }
       return Promise.resolve(jsonResponse([]))
     }
@@ -257,16 +247,10 @@ describe('gestão de viagens e configurações', () => {
     expect(screen.getByRole('alertdialog')).toHaveTextContent(
       'Esta ação não pode ser desfeita.',
     )
-    expect(putBodies.size).toBe(0)
+    expect(deleteRequests).toHaveLength(0)
     await userEvent.click(screen.getByRole('button', { name: 'Excluir viagem' }))
 
-    await waitFor(() => expect(putBodies.size).toBe(4))
-    expect(putBodies.get('/payments/bulk')).toEqual([
-      { id: 'p2', tripId: 'other' },
-    ])
-    expect(putBodies.get('/seats/bulk')).toEqual([])
-    expect(putBodies.get('/rooms/bulk')).toEqual([])
-    expect(putBodies.get('/trips/bulk')).toEqual([])
+    await waitFor(() => expect(deleteRequests).toEqual(['/trips/trip-1']))
     expect(readActiveTripId()).toBeNull()
   })
 
@@ -277,7 +261,7 @@ describe('gestão de viagens e configurações', () => {
       if (path === '/trips' && !init?.method) {
         return Promise.resolve(jsonResponse([rawTrip]))
       }
-      if (path === '/trips/bulk') {
+      if (path === '/trips/trip-1') {
         return Promise.resolve(
           jsonResponse({ message: 'Falha controlada' }, 500),
         )
@@ -298,15 +282,15 @@ describe('gestão de viagens e configurações', () => {
   })
 
   it('atualiza Configurações e mantém a mesma viagem ativa', async () => {
-    let persistedBody: Array<Record<string, unknown>> | null = null
+    let persistedBody: Record<string, unknown> | null = null
     writeActiveTripId(rawTrip.id)
     resourceHandler = (input, init) => {
       const path = requestPath(input)
       if (path === '/trips' && !init?.method) {
         return Promise.resolve(jsonResponse([rawTrip]))
       }
-      if (path === '/trips/bulk') {
-        persistedBody = parseRequestBody(init) as Array<Record<string, unknown>>
+      if (path === '/trips/trip-1') {
+        persistedBody = parseRequestBody(init) as Record<string, unknown>
         return Promise.resolve(jsonResponse(persistedBody))
       }
       return Promise.resolve(jsonResponse([]))
@@ -324,7 +308,7 @@ describe('gestão de viagens e configurações', () => {
     ).toBeInTheDocument()
     expect(readActiveTripId()).toBe(rawTrip.id)
     expect(
-      (persistedBody as Array<Record<string, unknown>> | null)?.[0],
+      persistedBody as Record<string, unknown> | null,
     ).toMatchObject({
       id: rawTrip.id,
       name: 'Retiro atualizado',
